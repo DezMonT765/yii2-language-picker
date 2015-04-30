@@ -7,40 +7,40 @@ use yii\helpers\Html;
 
 /**
  * Language Picker widget.
- * 
+ *
  * Examples:
  * Pre-defined button list:
- * 
+ *
  * ~~~
  * \lajax\languagepicker\widgets\LanguagePicker::widget([
  *      'skin' => \lajax\languagepicker\widgets\LanguagePicker::SKIN_BUTTON,
  *      'size' => \lajax\languagepicker\widgets\LanguagePicker::SIZE_SMALL
  * ]);
  * ~~~
- * 
+ *
  * Pre-defined DropDown list:
- * 
+ *
  * ~~~
  *  \lajax\languagepicker\widgets\LanguagePicker::widget([
  *      'skin' => \lajax\languagepicker\widgets\LanguagePicker::SKIN_DROPDOWN,
  *      'size' => \lajax\languagepicker\widgets\LanguagePicker::SIZE_LARGE
  * ]);
  * ~~~
- * 
+ *
  * Defining your own template:
- * 
+ *
  * ~~~
  *  \lajax\languagepicker\widgets\LanguagePicker::widget([
  *      'itemTemplate' => '<li><a href="{link}"><i class="{language}" title="{language}"></i> {name}</a></li>',
  *      'activeItemTemplate' => '<a href="{link}" title="{language}"><i class="{language}"></i> {name}</a>',
  *      'parentTemplate' => '<div class="language-picker dropdown-list {size}"><div>{activeItem}<ul>{items}</ul></div></div>',
- *       
+ *
  *      'languageAsset' => 'lajax\languagepicker\bundles\LanguageLargeIconsAsset',      // StyleSheets
  *      'languagePluginAsset' => 'lajax\languagepicker\bundles\LanguagePluginAsset',    // JavasSripts
  * ]);
  * ~~~
- * 
- * 
+ *
+ *
  * @author Lajos Molnar <lajax.m@gmail.com>
  * @since 1.0
  */
@@ -90,6 +90,8 @@ class LanguagePicker extends \yii\base\Widget {
         self::SIZE_LARGE => 'lajax\languagepicker\bundles\LanguageLargeIconsAsset',
     ];
 
+    public $active;
+
     /**
      * @var string ID of pre-defined skin (optional).
      */
@@ -100,7 +102,7 @@ class LanguagePicker extends \yii\base\Widget {
      * @var string size of the icons.
      */
     public $size;
-    
+
     /**
      * @var string The structure of the parent template.
      */
@@ -132,7 +134,7 @@ class LanguagePicker extends \yii\base\Widget {
     /**
      * @var array List of available languages.
      *  Formats supported in the pre-defined skins:
-     * 
+     *
      * ~~~
      *  ['en', 'de', 'es']
      *  ['en' => 'English', 'de' => 'Deutsch', 'fr' => 'Français']
@@ -157,7 +159,13 @@ class LanguagePicker extends \yii\base\Widget {
      */
     public static function widget($config = array()) {
         if (empty($config['languages']) || !is_array($config['languages'])) {
-            $config['languages'] = Yii::$app->languagepicker->languages;
+            $languages = Yii::$app->languagepicker->languages;
+            if(is_callable($languages))
+            {
+                $config['languages'] = call_user_func($languages);
+            }
+            else
+                $config['languages'] = $languages;
         }
 
         return parent::widget($config);
@@ -180,15 +188,16 @@ class LanguagePicker extends \yii\base\Widget {
 
         $items = '';
         $activeItem = '';
+
         $isInteger = is_integer(key($this->languages));
         if ($isInteger) {
             $this->languages = array_flip($this->languages);
         }
         foreach ($this->languages as $language => $name) {
             $name = $isInteger ? '' : $name;
-            if (Yii::$app->language == $language && $this->skin == self::SKIN_DROPDOWN) {
+            if (($language == $this->active)  && $this->skin == self::SKIN_DROPDOWN) {
                 $activeItem = $this->renderItem($language, $name, $this->activeItemTemplate);
-            } else if (Yii::$app->language == $language) {
+            } else if ($language == $this->active) {
                 $items .= $this->renderItem($language, $name, $this->activeItemTemplate);
             } else {
                 $items .= $this->renderItem($language, $name, $this->itemTemplate);
@@ -206,7 +215,7 @@ class LanguagePicker extends \yii\base\Widget {
         if ($this->skin && empty($this->_SKINS[$this->skin])) {
             throw new \yii\base\InvalidConfigException('The skin does not exist: ' . $this->skin);
         }
-        
+
         if ($this->size && empty($this->_SIZES[$this->size])) {
             throw new \yii\base\InvalidConfigException('The size does not exist: ' . $this->size);
         }
@@ -218,7 +227,7 @@ class LanguagePicker extends \yii\base\Widget {
                 }
             }
         }
-        
+
         if ($this->size) {
             $this->languageAsset = $this->_SIZES[$this->size];
         }
@@ -257,9 +266,8 @@ class LanguagePicker extends \yii\base\Widget {
             $name = Html::encode($name);
         }
 
-        $link = strtr($this->link, ['{language}' => $language]);
         return strtr($template, [
-            '{link}' => Yii::$app->urlManager->createUrl($link),
+            '{link}' => is_callable($this->link) ? call_user_func_array($this->link,[$language]) : '',
             '{name}' => $name,
             '{language}' => $language,
         ]);
